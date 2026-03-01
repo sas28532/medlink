@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>MedLink Direct — EMS Incident Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --blue:#116ff5;--blue-l:#5398f6;--blue-d:#044cc4;
+  --red:#ff1744;--orange:#ff9100;--green:#1affd5;
+  --bg:#020817;--card:rgba(10,25,47,0.85);
+  --txt:#e6f1ff;--muted:#8fa0c2;--accent:#1affd5;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Rajdhani",system-ui,sans-serif;}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 20% 20%,#0b1b40,transparent 50%),
+    radial-gradient(circle at 80% 80%,#120b2e,transparent 50%),#000814;
+  color:var(--txt);overflow:hidden;}
+elevenlabs-convai{position:fixed;bottom:20px;right:20px;z-index:9999;}
+.scan-grid{position:fixed;inset:0;
+  background-image:linear-gradient(transparent 95%,rgba(17,111,245,0.12) 96%);
+  background-size:100% 4px;opacity:.35;mix-blend-mode:screen;pointer-events:none;}
+
+.app{position:relative;width:min(560px,95vw);border-radius:24px;
+  background:radial-gradient(circle at top,rgba(17,111,245,0.35),transparent 55%),
+    radial-gradient(circle at bottom,rgba(255,23,68,0.3),transparent 55%),
+    linear-gradient(135deg,rgba(4,76,196,0.8),rgba(2,8,23,0.98));
+  box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 40px 80px rgba(0,0,0,0.7);overflow:hidden;}
+
+.emergency-bar{display:none;position:absolute;top:0;left:0;right:0;height:10px;z-index:10;}
+.emergency-active .emergency-bar{display:flex;}
+.el{flex:1;}
+.el.r{background:var(--red);animation:fr .55s infinite alternate;}
+.el.b{background:var(--blue);animation:fb .55s infinite alternate;}
+@keyframes fr{0%{opacity:.15}100%{opacity:1}}
+@keyframes fb{0%{opacity:1}100%{opacity:.15}}
+
+.p-incident{display:block;}
+.p-emergency,.p-translator,.p-nearby,.p-routing{display:none;}
+.emergency-active  .p-incident{display:none;}
+.emergency-active  .p-emergency{display:flex;flex-direction:column;align-items:center;gap:1.2rem;padding:1.6rem 1.2rem 1.4rem;text-align:center;}
+.translator-active .p-incident{display:none;}
+.translator-active .p-translator{display:flex;flex-direction:column;}
+.nearby-active     .p-incident{display:none;}
+.nearby-active     .p-nearby{display:flex;flex-direction:column;}
+.routing-active    .p-incident{display:none;}
+.routing-active    .p-routing{display:flex;flex-direction:column;}
+
+.ambulance-track{position:absolute;top:.55rem;left:0;right:0;pointer-events:none;overflow:hidden;}
+.ambulance{font-size:1.55rem;opacity:0;display:inline-block;}
+@keyframes adrive{0%{transform:translateX(-8%);opacity:0}10%{opacity:1}50%{transform:translateX(58%)}90%{opacity:1}100%{transform:translateX(108%);opacity:0}}
+.right-col{position:relative;margin:1.8rem 1.4rem 1.4rem;background:var(--card);border-radius:20px;
+  padding:1.3rem 1.2rem 1.4rem;border:1px solid rgba(255,255,255,0.05);
+  box-shadow:0 18px 50px rgba(0,0,0,0.75),0 0 0 1px rgba(4,76,196,0.3);overflow:hidden;}
+.right-col::before{content:"";position:absolute;inset:-40%;
+  background:radial-gradient(circle at 10% 0%,rgba(17,111,245,0.2),transparent 55%),
+    radial-gradient(circle at 100% 100%,rgba(255,23,68,0.15),transparent 50%);
+  opacity:.8;z-index:-1;}
+.r-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-family:"JetBrains Mono",monospace;}
+.r-title{display:flex;align-items:center;gap:.35rem;}
+.led{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 10px rgba(255,23,68,.9);}
+.btns{display:grid;grid-template-columns:1fr;gap:.8rem;margin-bottom:.9rem;}
+.eb{position:relative;overflow:hidden;border-radius:14px;border:none;cursor:pointer;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);
+  backdrop-filter:blur(12px);transition:transform .18s,box-shadow .18s,border-color .2s;width:100%;}
+.eb:hover{transform:translateY(-3px);border-color:rgba(26,255,213,0.75);
+  box-shadow:0 16px 32px rgba(0,0,0,0.9),0 0 0 1px rgba(26,255,213,0.7);}
+.eb:active{transform:translateY(-1px) scale(.99);}
+.eb-inner{padding:.9rem;display:flex;flex-direction:column;gap:.3rem;
+  background:radial-gradient(circle at top left,rgba(26,255,213,0.12),transparent 50%),rgba(2,9,30,0.9);
+  border-radius:inherit;border:1px solid rgba(255,255,255,0.07);
+  box-shadow:0 0 0 1px rgba(17,111,245,0.45),0 12px 28px rgba(0,0,0,0.8);
+  backdrop-filter:blur(6px);color:var(--txt);text-align:left;}
+.eb::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,rgba(26,255,213,0.2),transparent 50%);
+  opacity:0;transform:translateX(-40%);transition:opacity .22s,transform .22s;pointer-events:none;}
+.eb:hover::after{opacity:1;transform:translateX(0);}
+.bt{font-size:.88rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:"Rajdhani",sans-serif;}
+.bm{font-size:.66rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);}
+.bh{font-size:.85rem;color:var(--accent);font-family:"Orbitron",monospace;letter-spacing:.1em;}
+.br{display:flex;justify-content:space-between;align-items:center;gap:.4rem;}
+.badge{font-size:.6rem;padding:.18rem .5rem;border-radius:999px;border:1px solid rgba(255,255,255,0.15);
+  text-transform:uppercase;letter-spacing:.14em;color:var(--muted);background:rgba(5,16,48,0.85);}
+.badge.alert{border-color:rgba(255,23,68,.65);color:#ffd0dc;background:rgba(111,9,30,0.9);}
+.wave{position:absolute;border-radius:50%;transform:scale(0);
+  background:radial-gradient(circle,rgba(26,255,213,0.65),transparent 70%);
+  animation:wv .6s ease-out forwards;pointer-events:none;}
+@keyframes wv{to{transform:scale(10);opacity:0}}
+.console-box{padding:.7rem .65rem;border-radius:12px;background:rgba(2,9,30,0.95);
+  border:1px solid rgba(255,255,255,0.05);font-family:"JetBrains Mono",monospace;
+  font-size:.68rem;color:var(--muted);max-height:110px;overflow:auto;}
+.cl{white-space:nowrap;}.cl span{color:var(--accent);}.cl.err{color:#ffb3c1;}
+
+.pg-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:.9rem 1.2rem .75rem;border-bottom:1px solid rgba(255,255,255,0.06);}
+.pg-title{font-family:"Orbitron",monospace;font-size:.7rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:.4rem;}
+.ptdot{width:7px;height:7px;border-radius:50%;animation:pb 1s infinite;}
+.ptdot.red{background:var(--red);box-shadow:0 0 8px var(--red);}
+.ptdot.grn{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+@keyframes pb{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.65)}}
+.back-btn{padding:.32rem .9rem;border-radius:999px;border:1px solid rgba(255,255,255,0.25);
+  background:rgba(2,9,30,0.85);color:var(--txt);font-size:.7rem;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.1em;transition:background .2s;font-family:"Rajdhani",sans-serif;font-weight:500;}
+.back-btn:hover{background:rgba(17,111,245,0.35);}
+
+.em-pill{padding:.35rem .9rem;border-radius:999px;border:1px solid rgba(255,255,255,0.28);
+  font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;background:rgba(2,9,30,0.85);}
+.em-title{font-size:1.5rem;font-weight:600;font-family:"Orbitron",monospace;letter-spacing:.04em;}
+.em-sub{font-size:.82rem;color:var(--muted);max-width:320px;line-height:1.5;}
+.ekg-wrap{width:calc(100% - 2.4rem);background:rgba(2,9,30,0.92);
+  border:1px solid rgba(26,255,213,0.22);border-radius:16px;
+  padding:.8rem .6rem .55rem;position:relative;overflow:hidden;}
+.ekg-lbl{position:absolute;top:7px;left:11px;font-family:"Orbitron",monospace;
+  font-size:.55rem;color:rgba(26,255,213,.5);letter-spacing:.12em;}
+.ekg-pat{position:absolute;top:7px;right:11px;font-family:"Orbitron",monospace;
+  font-size:.5rem;color:rgba(26,255,213,.38);letter-spacing:.09em;transition:opacity .5s;}
+.ekg-wrap canvas{display:block;width:100%;height:86px;}
+.vitals{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;width:calc(100% - 2.4rem);}
+.vc{background:rgba(2,9,30,0.88);border:1px solid rgba(255,255,255,0.07);border-radius:14px;
+  padding:.8rem .9rem 1rem;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:.2rem;min-height:95px;}
+.vc::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;}
+.vc.hr::before{background:#ff1744;}.vc.bp::before{background:#ff9100;}
+.vc.o2::before{background:#1affd5;}.vc.rr::before{background:#2979ff;}
+.vl{font-size:.6rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);}
+.vv{font-family:"Orbitron",monospace;font-size:1.65rem;font-weight:600;line-height:1;}
+.vc.hr .vv{color:#ff4d6d;}.vc.bp .vv{color:#ffb74d;font-size:1.2rem;}
+.vc.o2 .vv{color:#1affd5;}.vc.rr .vv{color:#5c9fff;}
+.vu{font-size:.6rem;color:var(--muted);letter-spacing:.09em;margin-top:.12rem;}
+.vs{position:absolute;bottom:7px;right:9px;font-size:.54rem;text-transform:uppercase;
+  letter-spacing:.09em;padding:.12rem .4rem;border-radius:999px;}
+.vs.n{color:#1affd5;background:rgba(26,255,213,0.1);border:1px solid rgba(26,255,213,0.22);}
+.vs.w{color:#ffb74d;background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.28);}
+.vs.a{color:#ff4d6d;background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.28);}
+.pdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff1744;
+  margin-left:4px;vertical-align:middle;animation:pb 1s infinite;}
+
+.tr-title{display:flex;align-items:center;gap:.5rem;font-family:"Orbitron",monospace;
+  font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);}
+.tr-tdot{width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 7px var(--accent);animation:pb 1.4s infinite;}
+.lang-row{display:flex;align-items:center;gap:.45rem;padding:.65rem 1.2rem;
+  border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(2,9,30,0.4);}
+.lsel{flex:1;background:rgba(10,25,47,0.9);border:1px solid rgba(17,111,245,0.35);
+  border-radius:9px;color:var(--txt);font-size:.75rem;padding:.4rem 1.6rem .4rem .6rem;
+  cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238fa0c2'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .55rem center;font-family:"Rajdhani",sans-serif;}
+.lsel:focus{border-color:var(--accent);}
+.swap-btn{background:rgba(17,111,245,0.18);border:1px solid rgba(17,111,245,0.45);
+  border-radius:7px;color:var(--accent);font-size:.95rem;width:32px;height:32px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .2s,transform .3s;}
+.swap-btn:hover{background:rgba(17,111,245,0.38);transform:rotate(180deg);}
+.sp-toggle{display:flex;gap:.35rem;padding:.55rem 1.2rem .35rem;}
+.sp-btn{flex:1;padding:.38rem .4rem;border-radius:7px;border:1px solid rgba(255,255,255,0.09);
+  background:rgba(2,9,30,0.55);color:var(--muted);font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.09em;cursor:pointer;transition:all .2s;font-family:"Rajdhani",sans-serif;font-weight:500;}
+.sp-btn.on{border-color:rgba(17,111,245,0.55);background:rgba(17,111,245,0.18);color:var(--blue-l);}
+.conv{overflow-y:auto;padding:.75rem 1.2rem;display:flex;flex-direction:column;gap:.75rem;
+  min-height:180px;max-height:200px;scroll-behavior:smooth;}
+.conv::-webkit-scrollbar{width:3px;}
+.conv::-webkit-scrollbar-thumb{background:rgba(26,255,213,0.18);border-radius:2px;}
+.msg{display:flex;flex-direction:column;gap:.24rem;max-width:86%;animation:mi .22s ease-out;}
+@keyframes mi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.op{align-self:flex-end;align-items:flex-end;}
+.msg.pt{align-self:flex-start;align-items:flex-start;}
+.ml{font-size:.55rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:0 .25rem;}
+.mb{padding:.55rem .8rem;border-radius:13px;font-size:.84rem;line-height:1.4;}
+.msg.op .mb{background:linear-gradient(135deg,rgba(17,111,245,0.42),rgba(4,76,196,0.58));
+  border:1px solid rgba(17,111,245,0.45);border-bottom-right-radius:3px;color:#daeeff;}
+.msg.pt .mb{background:rgba(10,25,47,0.9);border:1px solid rgba(255,255,255,0.09);
+  border-bottom-left-radius:3px;color:var(--txt);}
+.mtr{font-size:.7rem;color:var(--accent);opacity:.82;font-style:italic;padding:0 .25rem;}
+.typing{display:none;align-self:flex-start;background:rgba(10,25,47,0.9);
+  border:1px solid rgba(255,255,255,0.09);border-radius:13px;border-bottom-left-radius:3px;
+  padding:.58rem .85rem;gap:4px;align-items:center;}
+.typing.on{display:flex;}
+.td{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.38;animation:tb 1.2s infinite;}
+.td:nth-child(2){animation-delay:.2s;}.td:nth-child(3){animation-delay:.4s;}
+@keyframes tb{0%,80%,100%{transform:translateY(0);opacity:.38}40%{transform:translateY(-4px);opacity:1}}
+.empty-msg{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:.45rem;color:var(--muted);font-size:.74rem;text-align:center;padding:.8rem;opacity:.6;}
+.empty-ico{font-size:1.65rem;opacity:.45;}
+.inp-area{border-top:1px solid rgba(255,255,255,0.05);padding:.7rem 1rem;
+  display:flex;flex-direction:column;gap:.5rem;background:rgba(2,9,30,0.5);}
+.inp-row{display:flex;gap:.45rem;align-items:flex-end;}
+.tinput{flex:1;background:rgba(10,25,47,0.9);border:1px solid rgba(255,255,255,0.09);
+  border-radius:11px;color:var(--txt);padding:.55rem .8rem;resize:none;
+  outline:none;line-height:1.4;max-height:88px;transition:border-color .2s;
+  font-family:"Rajdhani",sans-serif;font-size:.88rem;}
+.tinput::placeholder{color:var(--muted);opacity:.55;}
+.tinput:focus{border-color:rgba(26,255,213,0.45);}
+.sbtn{background:linear-gradient(135deg,rgba(17,111,245,0.65),rgba(4,76,196,0.88));
+  border:1px solid rgba(17,111,245,0.55);border-radius:11px;color:#fff;
+  width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,transform .15s;flex-shrink:0;font-size:.95rem;}
+.sbtn:hover{transform:scale(1.06);}
+.sbtn:disabled{opacity:.38;cursor:not-allowed;transform:none;}
+.micbtn{display:flex;align-items:center;justify-content:center;gap:.45rem;width:100%;
+  padding:.58rem;border-radius:11px;border:1px solid rgba(255,255,255,0.1);
+  background:rgba(10,25,47,0.65);color:var(--muted);font-size:.74rem;letter-spacing:.09em;
+  text-transform:uppercase;cursor:pointer;transition:all .2s;font-family:"Rajdhani",sans-serif;}
+.micbtn:hover{border-color:rgba(26,255,213,0.38);color:var(--accent);}
+.micbtn.rec{border-color:var(--red);color:#ff6b8a;background:rgba(255,23,68,0.1);animation:mp 1s infinite;}
+@keyframes mp{0%,100%{box-shadow:0 0 0 0 rgba(255,23,68,.35)}50%{box-shadow:0 0 0 5px rgba(255,23,68,0)}}
+.tstat{display:flex;align-items:center;gap:.35rem;padding:.38rem 1.2rem;
+  background:rgba(2,9,30,0.78);border-top:1px solid rgba(255,255,255,0.04);
+  font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  font-family:"JetBrains Mono",monospace;}
+.tsdot{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent);}
+
+.pp-map{position:relative;margin:.6rem 1rem;border-radius:12px;overflow:hidden;
+  background:#060f1e;border:1px solid rgba(17,111,245,0.28);height:188px;}
+.pp-map canvas{display:block;width:100%;height:100%;}
+.pp-map-lbl{position:absolute;bottom:5px;left:8px;font-family:"JetBrains Mono",monospace;
+  font-size:.48rem;color:rgba(26,255,213,.45);letter-spacing:.09em;}
+.pp-badge{position:absolute;top:6px;right:7px;background:rgba(255,23,68,0.88);
+  border-radius:999px;font-size:.56rem;padding:.13rem .48rem;letter-spacing:.09em;
+  font-weight:600;color:#fff;font-family:"Rajdhani",sans-serif;}
+.inc-list{padding:0 1rem .45rem;display:flex;flex-direction:column;gap:.48rem;
+  max-height:165px;overflow-y:auto;}
+.inc-list::-webkit-scrollbar{width:3px;}
+.inc-list::-webkit-scrollbar-thumb{background:rgba(26,255,213,0.12);}
+.ic{display:flex;align-items:center;gap:.65rem;padding:.58rem .75rem;
+  background:rgba(2,9,30,0.88);border:1px solid rgba(255,255,255,0.06);
+  border-radius:11px;cursor:pointer;transition:border-color .2s;}
+.ic:hover{border-color:rgba(255,23,68,0.45);}
+.ic-ico{font-size:1.1rem;flex-shrink:0;}
+.ic-info{flex:1;min-width:0;}
+.ic-type{font-size:.76rem;font-weight:600;color:var(--txt);}
+.ic-addr{font-size:.61rem;color:var(--muted);margin-top:.08rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ic-meta{text-align:right;flex-shrink:0;}
+.ic-dist{font-size:.62rem;color:var(--accent);font-family:"Orbitron",monospace;}
+.ic-ago{font-size:.55rem;color:var(--muted);margin-top:.08rem;}
+.ic-sev{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ic-sev.h{background:#ff1744;box-shadow:0 0 5px #ff1744;}
+.ic-sev.m{background:#ff9100;box-shadow:0 0 5px #ff9100;}
+.ic-sev.l{background:#1affd5;box-shadow:0 0 5px #1affd5;}
+.pp-stats{display:flex;gap:.45rem;padding:.5rem 1rem;border-top:1px solid rgba(255,255,255,0.05);}
+.ps{flex:1;background:rgba(2,9,30,0.7);border-radius:9px;padding:.45rem;
+  text-align:center;border:1px solid rgba(255,255,255,0.05);}
+.ps-v{font-family:"Orbitron",monospace;font-size:1.05rem;font-weight:600;}
+.ps-v.r{color:#ff4d6d;}.ps-v.o{color:#ffb74d;}.ps-v.g{color:#1affd5;}
+.ps-l{font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:.12rem;}
+
+.rt-map{position:relative;margin:.6rem 1rem;border-radius:12px;overflow:hidden;
+  background:#05101e;border:1px solid rgba(17,111,245,0.28);height:196px;}
+.rt-map canvas{display:block;width:100%;height:100%;}
+.rt-overlay{position:absolute;top:7px;left:7px;right:7px;
+  display:flex;justify-content:space-between;pointer-events:none;}
+.rt-badge{background:rgba(2,9,30,0.92);border:1px solid rgba(17,111,245,0.38);
+  border-radius:9px;padding:.35rem .6rem;font-family:"Orbitron",monospace;
+  font-size:.55rem;letter-spacing:.09em;color:var(--accent);}
+.rt-badge.warn{border-color:rgba(255,23,68,0.48);color:#ff8fa3;}
+.eta-box{margin:0 1rem .55rem;padding:.65rem .9rem;border-radius:12px;
+  background:rgba(2,9,30,0.92);border:1px solid rgba(17,111,245,0.22);
+  display:flex;align-items:center;gap:.9rem;}
+.eta-num{font-family:"Orbitron",monospace;font-size:1.9rem;font-weight:700;color:var(--accent);line-height:1;}
+.eta-u{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;margin-top:.18rem;}
+.eta-info{flex:1;}
+.eta-dest{font-size:.78rem;font-weight:600;color:var(--txt);}
+.eta-sub{font-size:.62rem;color:var(--muted);margin-top:.18rem;}
+.traf-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.42rem;padding:0 1rem .55rem;}
+.ts{background:rgba(2,9,30,0.82);border-radius:9px;padding:.45rem .55rem;
+  border:1px solid rgba(255,255,255,0.05);transition:border-color .35s;}
+.ts.cong{border-color:rgba(255,23,68,0.38);}.ts.slow{border-color:rgba(255,145,0,0.38);}
+.ts.clr{border-color:rgba(26,255,213,0.22);}
+.ts-road{font-size:.62rem;font-weight:600;color:var(--txt);}
+.ts-spd{font-family:"Orbitron",monospace;font-size:.85rem;margin-top:.12rem;}
+.ts.cong .ts-spd{color:#ff4d6d;}.ts.slow .ts-spd{color:#ffb74d;}.ts.clr .ts-spd{color:#1affd5;}
+.ts-lbl{font-size:.48rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);}
+.reroute{margin:0 1rem .55rem;padding:.45rem .75rem;border-radius:9px;
+  background:rgba(255,23,68,0.09);border:1px solid rgba(255,23,68,0.32);
+  font-size:.67rem;color:#ff8fa3;display:none;align-items:center;gap:.45rem;}
+.reroute.show{display:flex;}
+
+@media(max-width:600px){.app{border-radius:0;}}
+</style>
+</head>
+<body>
+<div class="scan-grid"></div>
+<main class="app" id="root">
+  <div class="emergency-bar"><div class="el r"></div><div class="el b"></div></div>
+
+  <!-- INCIDENT PAGE -->
+  <section class="p-incident">
+    <div class="ambulance-track"><div class="ambulance" id="amb">🚑</div></div>
+    <div class="right-col">
+      <div class="r-header">
+        <span class="r-title"><div class="led"></div>Incident panel</span>
+        <span style="font-size:.65rem">Interactions: <strong id="cnt" style="color:var(--accent)">0</strong></span>
+      </div>
+      <div class="btns">
+        <button class="eb" data-t="emergency" data-a="Emergency — Call 911">
+          <div class="eb-inner">
+            <div class="br"><p class="bt">Emergency</p><span class="badge alert">High priority</span></div>
+            <p class="bm">Connect to 911 / local EMS</p>
+            <div class="br"><span class="bh">Tap to start</span><span class="bm">Share live location</span></div>
+          </div>
+        </button>
+        <button class="eb" data-t="translator" data-a="Open emergency translator">
+          <div class="eb-inner">
+            <div class="br"><p class="bt">Live translator</p><span class="badge">Language support</span></div>
+            <p class="bm">Translate basic EMS questions</p>
+            <div class="br"><span class="bh">EN ↔ ES • + more</span><span class="bm">Gemini AI powered</span></div>
+          </div>
+        </button>
+        <button class="eb" data-t="nearby" data-a="Scan for nearby CPR / AED needs">
+          <div class="eb-inner">
+            <div class="br"><p class="bt">Nearby help</p><span class="badge">CPR / AED</span></div>
+            <p class="bm">See who needs assistance near you</p>
+            <div class="br"><span class="bh">Location ON</span><span class="bm">PulsePoint feed</span></div>
+          </div>
+        </button>
+        <button class="eb" data-t="routing" data-a="Smart ambulance route optimization">
+          <div class="eb-inner">
+            <div class="br"><p class="bt">Smart routing</p><span class="badge">AI route</span></div>
+            <p class="bm">Optimize ambulance path in real time</p>
+            <div class="br"><span class="bh">Traffic aware</span><span class="bm">Delaware live</span></div>
+          </div>
+        </button>
+      </div>
+      <div class="console-box" id="console">
+        <div class="cl">[00:00:00] <span>SYSTEM</span> • MedLink Direct initialized.</div>
+        <div class="cl">[00:00:01] <span>DISPATCH</span> • Awaiting operator input…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EMERGENCY PAGE -->
+  <section class="p-emergency" id="p-emergency">
+    <div class="em-pill">Emergency mode active</div>
+    <h1 class="em-title">Ambulance En Route</h1>
+    <p class="em-sub">Please remain calm. Stay with the patient. Nearest EMS unit is tracking your location.</p>
+    <div class="ekg-wrap">
+      <div class="ekg-lbl">ECG LIVE</div>
+      <div class="ekg-pat" id="ekg-pat">NORMAL SINUS</div>
+      <canvas id="ekg-c"></canvas>
+    </div>
+    <div class="vitals">
+      <div class="vc hr"><span class="vl">Heart Rate <span class="pdot"></span></span><span class="vv" id="v-hr">--</span><span class="vu">BPM</span><span class="vs n" id="s-hr">Normal</span></div>
+      <div class="vc bp"><span class="vl">Blood Pressure</span><span class="vv" id="v-bp">--/--</span><span class="vu">mmHg</span><span class="vs n" id="s-bp">Normal</span></div>
+      <div class="vc o2"><span class="vl">SpO₂</span><span class="vv" id="v-o2">--%</span><span class="vu">Oxygen Sat.</span><span class="vs n" id="s-o2">Normal</span></div>
+      <div class="vc rr"><span class="vl">Resp. Rate</span><span class="vv" id="v-rr">--</span><span class="vu">Breaths/min</span><span class="vs n" id="s-rr">Normal</span></div>
+    </div>
+    <button class="back-btn" id="bb-em">Return to panel</button>
+  </section>
+
+  <!-- TRANSLATOR PAGE -->
+  <section class="p-translator" id="p-tr">
+    <div class="pg-hdr">
+      <div class="tr-title"><div class="tr-tdot"></div>EMS Live Translator</div>
+      <button class="back-btn" id="bb-tr">✕ Close</button>
+    </div>
+    <div class="lang-row">
+      <select class="lsel" id="lf">
+        <option value="English">🇺🇸 English</option><option value="Spanish">🇪🇸 Spanish</option>
+        <option value="French">🇫🇷 French</option><option value="Mandarin">🇨🇳 Mandarin</option>
+        <option value="Portuguese">🇧🇷 Portuguese</option><option value="Arabic">🇸🇦 Arabic</option>
+        <option value="Russian">🇷🇺 Russian</option><option value="Korean">🇰🇷 Korean</option>
+        <option value="Hindi">🇮🇳 Hindi</option><option value="Japanese">🇯🇵 Japanese</option>
+        <option value="Haitian Creole">🇭🇹 Haitian Creole</option><option value="Vietnamese">🇻🇳 Vietnamese</option>
+      </select>
+      <button class="swap-btn" id="lswap">⇄</button>
+      <select class="lsel" id="lt">
+        <option value="Spanish">🇪🇸 Spanish</option><option value="English">🇺🇸 English</option>
+        <option value="French">🇫🇷 French</option><option value="Mandarin">🇨🇳 Mandarin</option>
+        <option value="Portuguese">🇧🇷 Portuguese</option><option value="Arabic">🇸🇦 Arabic</option>
+        <option value="Russian">🇷🇺 Russian</option><option value="Korean">🇰🇷 Korean</option>
+        <option value="Hindi">🇮🇳 Hindi</option><option value="Japanese">🇯🇵 Japanese</option>
+        <option value="Haitian Creole">🇭🇹 Haitian Creole</option><option value="Vietnamese">🇻🇳 Vietnamese</option>
+      </select>
+    </div>
+    <div class="sp-toggle">
+      <button class="sp-btn on" id="sp-op">🎙 Operator</button>
+      <button class="sp-btn" id="sp-pt">👤 Patient</button>
+    </div>
+    <div class="conv" id="conv">
+      <div class="empty-msg" id="conv-empty"><div class="empty-ico">🌐</div><div>Type or hold mic to speak.<br/>Translates instantly via Gemini AI.</div></div>
+      <div class="typing" id="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>
+    </div>
+    <div class="inp-area">
+      <div class="inp-row">
+        <textarea class="tinput" id="tinput" rows="1" placeholder="Type message to translate…"></textarea>
+        <button class="sbtn" id="sbtn">➤</button>
+      </div>
+      <button class="micbtn" id="micbtn"><span>🎙</span><span id="miclbl">Hold to speak</span></button>
+    </div>
+    <div class="tstat"><div class="tsdot"></div><span id="tstat-txt">Gemini AI • Ready</span></div>
+  </section>
+
+  <!-- PULSEPOINT PAGE -->
+  <section class="p-nearby" id="p-near">
+    <div class="pg-hdr">
+      <div class="pg-title"><div class="ptdot red"></div>PulsePoint™ Feed — Delaware</div>
+      <button class="back-btn" id="bb-near">✕ Close</button>
+    </div>
+    <div class="pp-map"><canvas id="pp-c"></canvas>
+      <div class="pp-map-lbl">WILMINGTON, DE • LIVE INCIDENT FEED</div>
+      <div class="pp-badge" id="pp-badge">7 ACTIVE</div>
+    </div>
+    <div class="inc-list" id="inc-list"></div>
+    <div class="pp-stats">
+      <div class="ps"><div class="ps-v r" id="ps-c">3</div><div class="ps-l">Critical</div></div>
+      <div class="ps"><div class="ps-v o" id="ps-m">2</div><div class="ps-l">Moderate</div></div>
+      <div class="ps"><div class="ps-v g" id="ps-l">2</div><div class="ps-l">Low</div></div>
+    </div>
+  </section>
+
+  <!-- SMART ROUTING PAGE -->
+  <section class="p-routing" id="p-rt">
+    <div class="pg-hdr">
+      <div class="pg-title"><div class="ptdot grn"></div>Smart Routing — Delaware</div>
+      <button class="back-btn" id="bb-rt">✕ Close</button>
+    </div>
+    <div class="rt-map"><canvas id="rt-c"></canvas>
+      <div class="rt-overlay">
+        <div class="rt-badge" id="rt-mode">OPTIMAL ROUTE</div>
+        <div class="rt-badge warn" id="rt-warn" style="display:none">⚠ REROUTING</div>
+      </div>
+    </div>
+    <div class="eta-box">
+      <div><div class="eta-num" id="eta-n">8</div><div class="eta-u">min ETA</div></div>
+      <div class="eta-info">
+        <div class="eta-dest" id="eta-dest">Christiana Hospital, Newark DE</div>
+        <div class="eta-sub" id="eta-sub">Via I-95 N • 4.2 mi • Updating…</div>
+      </div>
+    </div>
+    <div class="traf-grid">
+      <div class="ts clr" id="ts0"><div class="ts-road">I-95 N</div><div class="ts-spd" id="tspd0">62 mph</div><div class="ts-lbl" id="tlbl0">Clear</div></div>
+      <div class="ts slow" id="ts1"><div class="ts-road">US-202</div><div class="ts-spd" id="tspd1">28 mph</div><div class="ts-lbl" id="tlbl1">Slow</div></div>
+      <div class="ts cong" id="ts2"><div class="ts-road">DE-1 S</div><div class="ts-spd" id="tspd2">11 mph</div><div class="ts-lbl" id="tlbl2">Congested</div></div>
+      <div class="ts clr" id="ts3"><div class="ts-road">Rte 9</div><div class="ts-spd" id="tspd3">48 mph</div><div class="ts-lbl" id="tlbl3">Clear</div></div>
+      <div class="ts slow" id="ts4"><div class="ts-road">Kirkwood</div><div class="ts-spd" id="tspd4">22 mph</div><div class="ts-lbl" id="tlbl4">Slow</div></div>
+      <div class="ts clr" id="ts5"><div class="ts-road">Concord Pk</div><div class="ts-spd" id="tspd5">55 mph</div><div class="ts-lbl" id="tlbl5">Clear</div></div>
+    </div>
+    <div class="reroute" id="reroute">⚠ <span id="reroute-msg">Heavy congestion on DE-1. Switching to Rte 9 via Christiana Rd.</span></div>
+  </section>
+</main>
+
+<elevenlabs-convai agent-id="agent_3301kjmywgxyfnwv4f505rnw65xz"></elevenlabs-convai><script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<audio id="siren" src="https://actions.google.com/sounds/v1/alarms/emergency_siren.ogg"></audio>
+<audio id="emma" src="Emma.mp3"></audio>
+
+<script>
+const root=document.getElementById("root");
+const con=document.getElementById("console");
+const amb=document.getElementById("amb");
+const siren=document.getElementById("siren");
+const emma=document.getElementById("emma");
+let clicks=0,t0=Date.now(),busy=false;
+
+function ts(){
+  const s=Math.floor((Date.now()-t0)/1000);
+  return "["+String(Math.floor(s/3600)).padStart(2,"0")+":"+String(Math.floor((s%3600)/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")+"]";
+}
+function log(tag,msg,err){
+  const d=document.createElement("div");
+  d.className="cl"+(err?" err":"");
+  d.innerHTML=ts()+" <span>"+tag+"</span> • "+msg;
+  con.appendChild(d);con.scrollTop=con.scrollHeight;
+}
+function ripple(e){
+  const b=e.currentTarget,r=b.getBoundingClientRect(),w=document.createElement("span");
+  w.className="wave";const s=Math.max(r.width,r.height);
+  w.style.cssText="width:"+s+"px;height:"+s+"px;left:"+(e.clientX-r.left-s/2)+"px;top:"+(e.clientY-r.top-s/2)+"px";
+  b.appendChild(w);w.addEventListener("animationend",()=>w.remove());
+}
+function runAmb(cb){
+  amb.style.animation="none";void amb.offsetWidth;
+  amb.style.animation="adrive 2.2s ease-out forwards";
+  setTimeout(cb,2200);
+}
+function stopAudio(){try{siren.pause();siren.currentTime=0;emma.pause();emma.currentTime=0;}catch(e){}}
+function playSiren(){try{siren.currentTime=0;siren.volume=.6;siren.play();setTimeout(()=>{siren.pause();siren.currentTime=0;},5000);}catch(e){}}
+function playEmma(){try{emma.pause();emma.currentTime=0;emma.play();}catch(e){}}
+
+function showPage(p){
+  root.classList.remove("emergency-active","translator-active","nearby-active","routing-active");
+  if(p==="emergency") root.classList.add("emergency-active");
+  if(p==="translator") root.classList.add("translator-active");
+  if(p==="nearby"){root.classList.add("nearby-active");startPP();}
+  if(p==="routing"){root.classList.add("routing-active");startRT();}
+}
+
+document.querySelectorAll(".eb").forEach(b=>{
+  b.addEventListener("click",function(e){
+    if(busy)return;busy=true;ripple(e);
+    const t=b.dataset.t,a=b.dataset.a;
+    clicks++;document.getElementById("cnt").textContent=clicks;
+    runAmb(()=>{
+      log("OPERATOR","Triggered: "+a);
+      if(t==="emergency"){stopAudio();showPage("emergency");playSiren();setTimeout(playEmma,1200);startVitals();startEKG();}
+      if(t==="translator"){showPage("translator");log("SYSTEM","Translator active. Gemini AI ready.");}
+      if(t==="nearby"){showPage("nearby");log("SYSTEM","PulsePoint feed active — Delaware region.");}
+      if(t==="routing"){showPage("routing");log("SYSTEM","Smart routing engaged — Delaware road network.");}
+      busy=false;
+    });
+  });
+});
+
+document.getElementById("bb-em").onclick=()=>{stopAudio();stopVitals();stopEKG();showPage("home");};
+document.getElementById("bb-tr").onclick=()=>{stopRec();showPage("home");};
+document.getElementById("bb-near").onclick=()=>{stopPP();showPage("home");};
+document.getElementById("bb-rt").onclick=()=>{stopRT();showPage("home");};
+
+setInterval(()=>{
+  const r=Math.random();
+  if(r>.83)log("TELEMETRY","Heartbeat ping from all active units.");
+  else if(r<.07)log("SYSTEM","GPS drift detected, recalibrating…",true);
+},5500);
+
+/* VITALS */
+let vInt=null;
+let V={hr:88,sys:128,dia:82,o2:97,rr:16};
+const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
+const drift=(v,d)=>v+(Math.random()-.5)*d;
+function updV(){
+  V.hr=clamp(drift(V.hr,6),52,145);V.sys=clamp(drift(V.sys,5),88,182);
+  V.dia=clamp(drift(V.dia,4),52,112);V.o2=clamp(drift(V.o2,1.2),87,100);
+  V.rr=clamp(drift(V.rr,2),7,36);
+  const hr=Math.round(V.hr),sys=Math.round(V.sys),dia=Math.round(V.dia),o2=V.o2.toFixed(0),rr=Math.round(V.rr);
+  document.getElementById("v-hr").textContent=hr;
+  document.getElementById("v-bp").textContent=sys+"/"+dia;
+  document.getElementById("v-o2").textContent=o2+"%";
+  document.getElementById("v-rr").textContent=rr;
+  sv("s-hr",hr<58?"w":hr>112?"a":"n",hr<58?"Low":hr>112?"High":"Normal");
+  sv("s-bp",sys>162?"a":sys>142?"w":sys<90?"w":"n",sys>162?"High":sys>142?"Elevated":sys<90?"Low":"Normal");
+  sv("s-o2",o2<92?"a":o2<95?"w":"n",o2<92?"Critical":o2<95?"Low":"Normal");
+  sv("s-rr",rr<9||rr>26?"a":rr>21?"w":"n",rr<9?"Low":rr>26?"High":rr>21?"Elevated":"Normal");
+  const pd=document.querySelector(".pdot");if(pd)pd.style.animationDuration=(60/hr).toFixed(2)+"s";
+}
+function sv(id,c,t){const e=document.getElementById(id);if(!e)return;e.className="vs "+c;e.textContent=t;}
+function startVitals(){updV();vInt=setInterval(updV,1800);}
+function stopVitals(){clearInterval(vInt);vInt=null;}
+
+/* ECG */
+const PATS=[
+  {name:"NORMAL SINUS",f:t=>{
+    if(t<.08)return .22*Math.sin(Math.PI*t/.08);if(t<.16)return 0;
+    if(t<.20)return-.12*Math.sin(Math.PI*(t-.16)/.04);
+    if(t<.26)return 1.00*Math.sin(Math.PI*(t-.20)/.06);
+    if(t<.32)return-.22*Math.sin(Math.PI*(t-.26)/.06);
+    if(t<.40)return 0;if(t<.58)return .32*Math.sin(Math.PI*(t-.40)/.18);return 0;}},
+  {name:"SINUS TACH",f:t=>{
+    if(t<.10)return .30*Math.sin(Math.PI*t/.10);
+    if(t<.26)return 1.00*Math.sin(Math.PI*(t-.19)/.07);
+    if(t<.31)return-.30*Math.sin(Math.PI*(t-.26)/.05);
+    if(t<.52)return .38*Math.sin(Math.PI*(t-.38)/.14);return 0;}},
+  {name:"BRADYCARDIA",f:t=>{
+    if(t<.06)return .18*Math.sin(Math.PI*t/.06);
+    if(t<.28)return .90*Math.sin(Math.PI*(t-.23)/.05);
+    if(t<.62)return .28*Math.sin(Math.PI*(t-.52)/.10);return 0;}},
+  {name:"ELEVATED ST",f:t=>{
+    if(t<.09)return .20*Math.sin(Math.PI*t/.09);
+    if(t<.27)return 1.00*Math.sin(Math.PI*(t-.21)/.06);
+    if(t<.44)return .14-.14*((t-.32)/.12);
+    if(t<.62)return .36*Math.sin(Math.PI*(t-.44)/.18);return 0;}}
+];
+let ekgAF=null,ekgOn=false,pat=0,cc=0,cs=3+Math.floor(Math.random()*3);
+function startEKG(){
+  const c=document.getElementById("ekg-c");if(!c)return;
+  const rect=c.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  c.width=Math.round(rect.width*dpr);c.height=Math.round(86*dpr);
+  const ctx=c.getContext("2d"),W=c.width,H=c.height,col="#1affd5";
+  const buf=new Float32Array(W).fill(.5);
+  let bh=0,pc=0;
+  const spd=()=>Math.max(2,4*(V.hr/80));
+  const cl=()=>Math.round(W*.68*(80/V.hr));
+  function ul(op){const e=document.getElementById("ekg-pat");if(e){e.textContent=PATS[pat].name;e.style.opacity=op;}}
+  ul(.4);
+  function draw(){
+    if(!ekgOn)return;
+    const sp=Math.round(spd()),cLen=cl();
+    for(let i=0;i<sp;i++){
+      buf[bh%W]=.5-PATS[pat].f(pc/cLen)*.40;bh++;pc++;
+      if(pc>=cLen){pc=0;cc++;
+        if(cc>=cs){cc=0;cs=3+Math.floor(Math.random()*3);
+          let nx=pat;while(nx===pat)nx=Math.floor(Math.random()*PATS.length);
+          pat=nx;ul(0);setTimeout(()=>ul(.4),600);}
+      }
+    }
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle="rgba(26,255,213,0.06)";ctx.lineWidth=1;
+    for(let i=0;i<=10;i++){const x=Math.round(i*W/10);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let i=0;i<=5;i++){const y=Math.round(i*H/5);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    for(let x=0;x<W-1;x++){
+      const i0=(bh-W+x+W*9999)%W,i1=(bh-W+x+1+W*9999)%W;
+      const y0=buf[i0]*H,y1=buf[i1]*H,al=.3+.7*(x/W);
+      ctx.beginPath();ctx.strokeStyle="rgba(26,255,213,"+al+")";
+      ctx.lineWidth=1.5*dpr;ctx.shadowColor=col;ctx.shadowBlur=al>.78?7:2;
+      ctx.moveTo(x,y0);ctx.lineTo(x+1,y1);ctx.stroke();
+    }
+    const hy=buf[(bh-1+W*9999)%W]*H;
+    ctx.beginPath();ctx.arc(W-1,hy,3.2*dpr,0,Math.PI*2);
+    ctx.fillStyle="#fff";ctx.shadowColor=col;ctx.shadowBlur=14;ctx.fill();
+    ekgAF=requestAnimationFrame(draw);
+  }
+  ekgOn=true;draw();
+}
+function stopEKG(){
+  ekgOn=false;if(ekgAF)cancelAnimationFrame(ekgAF);ekgAF=null;
+  pat=0;cc=0;cs=3+Math.floor(Math.random()*3);
+  const c=document.getElementById("ekg-c");if(c)c.getContext("2d").clearRect(0,0,c.width,c.height);
+}
+
+/* TRANSLATOR */
+const conv=document.getElementById("conv");
+const convEmp=document.getElementById("conv-empty");
+const typing=document.getElementById("typing");
+const tinput=document.getElementById("tinput");
+const sbtn=document.getElementById("sbtn");
+const micbtn=document.getElementById("micbtn");
+const miclbl=document.getElementById("miclbl");
+const statTxt=document.getElementById("tstat-txt");
+const lf=document.getElementById("lf");
+const lt=document.getElementById("lt");
+let spk="operator",isTr=false,rec=null,isRec=false;
+
+document.getElementById("sp-op").onclick=()=>{spk="operator";document.getElementById("sp-op").classList.add("on");document.getElementById("sp-pt").classList.remove("on");tinput.placeholder="Type message to translate…";};
+document.getElementById("sp-pt").onclick=()=>{spk="patient";document.getElementById("sp-pt").classList.add("on");document.getElementById("sp-op").classList.remove("on");tinput.placeholder="Patient message to translate…";};
+document.getElementById("lswap").onclick=()=>{const a=lf.value,b=lt.value;lf.value=b;lt.value=a;};
+tinput.addEventListener("input",()=>{tinput.style.height="auto";tinput.style.height=Math.min(tinput.scrollHeight,88)+"px";});
+tinput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}});
+sbtn.onclick=send;
+
+function setTS(txt,busy=false){statTxt.textContent=txt;sbtn.disabled=busy;if(!isRec)micbtn.disabled=busy;}
+function showTyp(){typing.classList.add("on");conv.scrollTop=conv.scrollHeight;}
+function hideTyp(){typing.classList.remove("on");}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function addMsg(orig,trans,who){
+  convEmp.style.display="none";
+  const fl=who==="operator"?lf.value:lt.value;
+  const tl=who==="operator"?lt.value:lf.value;
+  const m=document.createElement("div");
+  m.className="msg "+who;
+  m.innerHTML='<div class="ml">'+(who==="operator"?"🎙 Operator":"👤 Patient")+" · "+fl+'</div><div class="mb">'+esc(orig)+'</div><div class="mtr">↳ '+tl+": "+esc(trans)+"</div>";
+  conv.insertBefore(m,typing);conv.scrollTop=conv.scrollHeight;
+}
+async function send(){
+  const txt=tinput.value.trim();if(!txt||isTr)return;
+  const from=spk==="operator"?lf.value:lt.value;
+  const to=spk==="operator"?lt.value:lf.value;
+  isTr=true;tinput.value="";tinput.style.height="auto";
+  setTS("Translating…",true);showTyp();
+  try{
+    const r=await fetch("/.netlify/functions/translate",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:txt,fromLang:from,toLang:to})
+    });
+    if(!r.ok){const e=await r.text().catch(()=>"");throw new Error("Error "+r.status+": "+e);}
+    const d=await r.json();
+    if(!d.translation)throw new Error("Empty response");
+    hideTyp();addMsg(txt,d.translation,spk);
+    setTS("Gemini AI • Ready");
+    log("TRANSLATOR",from+" → "+to+" complete.");
+  }catch(err){
+    hideTyp();setTS("⚠ Translation failed — check connection");
+    log("TRANSLATOR",err.message,true);console.error(err);
+  }finally{isTr=false;sbtn.disabled=false;micbtn.disabled=false;}
+}
+const LCODES={"English":"en-US","Spanish":"es-ES","French":"fr-FR","Mandarin":"zh-CN","Portuguese":"pt-BR","Arabic":"ar-SA","Russian":"ru-RU","Korean":"ko-KR","Hindi":"hi-IN","Japanese":"ja-JP","Haitian Creole":"fr-HT","Vietnamese":"vi-VN"};
+function setupRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){micbtn.style.opacity=".3";micbtn.disabled=true;return null;}
+  const r=new SR();r.continuous=false;r.interimResults=true;
+  r.onstart=()=>{isRec=true;micbtn.classList.add("rec");miclbl.textContent="Listening…";setTS("Listening…",true);tinput.value="";tinput.placeholder="Speak now…";};
+  r.onresult=e=>{const t=Array.from(e.results).map(r=>r[0].transcript).join("");tinput.value=t;tinput.style.height="auto";tinput.style.height=Math.min(tinput.scrollHeight,88)+"px";};
+  r.onend=()=>{isRec=false;micbtn.classList.remove("rec");miclbl.textContent="Hold to speak";tinput.placeholder=spk==="operator"?"Type message to translate…":"Patient message to translate…";setTS("Gemini AI • Ready",false);if(tinput.value.trim())send();};
+  r.onerror=e=>{isRec=false;micbtn.classList.remove("rec");miclbl.textContent="Hold to speak";setTS("Mic error: "+e.error,false);};
+  return r;
+}
+function startRec(){if(!rec)rec=setupRec();if(!rec||isRec||isTr)return;rec.lang=LCODES[spk==="operator"?lf.value:lt.value]||"en-US";try{rec.start();}catch(e){}}
+function stopRec(){if(rec&&isRec){try{rec.stop();}catch(e){}}}
+micbtn.addEventListener("mousedown",startRec);micbtn.addEventListener("mouseup",stopRec);micbtn.addEventListener("mouseleave",stopRec);
+micbtn.addEventListener("touchstart",e=>{e.preventDefault();startRec();},{passive:false});
+micbtn.addEventListener("touchend",e=>{e.preventDefault();stopRec();},{passive:false});
+rec=setupRec();
+
+/* PULSEPOINT */
+const INCS=[
+  {type:"Cardiac Arrest",ico:"❤️‍🔥",addr:"1400 N Market St, Wilmington",dist:"0.3 mi",sev:"h"},
+  {type:"Unconscious Person",ico:"🚨",addr:"4755 Ogletown-Stanton Rd, Newark",dist:"0.7 mi",sev:"h"},
+  {type:"Vehicle Accident",ico:"🚗",addr:"I-95 N MM 6, Wilmington",dist:"1.1 mi",sev:"h"},
+  {type:"Difficulty Breathing",ico:"🫁",addr:"501 W 14th St, Wilmington",dist:"0.5 mi",sev:"m"},
+  {type:"Fall Injury",ico:"🩹",addr:"100 W 10th St, Wilmington",dist:"0.8 mi",sev:"m"},
+  {type:"Chest Pain",ico:"💊",addr:"300 E Main St, Newark DE",dist:"1.4 mi",sev:"l"},
+  {type:"Fire Alarm",ico:"🔥",addr:"800 N French St, Wilmington",dist:"0.6 mi",sev:"l"},
+  {type:"Stroke Alert",ico:"🧠",addr:"Christiana Care ER, Newark",dist:"2.1 mi",sev:"h"},
+  {type:"AED Needed",ico:"⚡",addr:"Wilmington Train Station",dist:"0.4 mi",sev:"m"},
+];
+let ppAF=null,ppOn=false,ppInt=null,ppDots=[];
+function buildIncs(){
+  const list=document.getElementById("inc-list");list.innerHTML="";
+  const sh=[...INCS].sort(()=>Math.random()-.5).slice(0,7);
+  sh.forEach(inc=>{
+    const ago=Math.floor(Math.random()*9)+1;
+    const c=document.createElement("div");c.className="ic";
+    c.innerHTML='<div class="ic-sev '+inc.sev+'"></div><div class="ic-ico">'+inc.ico+'</div><div class="ic-info"><div class="ic-type">'+inc.type+'</div><div class="ic-addr">'+inc.addr+'</div></div><div class="ic-meta"><div class="ic-dist">'+inc.dist+'</div><div class="ic-ago">'+ago+'m ago</div></div>';
+    list.appendChild(c);
+  });
+  const hc=sh.filter(x=>x.sev==="h").length,mc=sh.filter(x=>x.sev==="m").length,lc=sh.filter(x=>x.sev==="l").length;
+  document.getElementById("ps-c").textContent=hc;
+  document.getElementById("ps-m").textContent=mc;
+  document.getElementById("ps-l").textContent=lc;
+  document.getElementById("pp-badge").textContent=sh.length+" ACTIVE";
+}
+function initDots(W,H){
+  ppDots=INCS.slice(0,7).map(inc=>({
+    x:.12*W+Math.random()*.76*W,y:.12*H+Math.random()*.76*H,
+    sev:inc.sev,phase:Math.random()*Math.PI*2,spd:.35+Math.random()*.35,maxR:10+Math.random()*9
+  }));
+}
+function drawPP(){
+  if(!ppOn)return;
+  const c=document.getElementById("pp-c");if(!c)return;
+  const ctx=c.getContext("2d"),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="rgba(17,111,245,0.07)";ctx.lineWidth=1;
+  for(let i=0;i<=8;i++){const x=i*W/8;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let i=0;i<=5;i++){const y=i*H/5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  const roads=[[[.48*W,0],[.46*W,H]],[[0,.48*H],[W,.52*H]],[[.18*W,0],[.26*W,H]],[[.68*W,.1*H],[.62*W,H]],[[0,.22*H],[.58*W,.26*H]]];
+  roads.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.strokeStyle="rgba(83,152,246,0.16)";ctx.lineWidth=1.5;ctx.stroke();});
+  ctx.fillStyle="rgba(83,152,246,0.32)";ctx.font="bold 8px JetBrains Mono,monospace";
+  ctx.fillText("I-95",.44*W,.12*H);ctx.fillText("US-40",.55*W,.52*H);ctx.fillText("DE-1",.6*W,.55*H);
+  const now=Date.now()/1000;
+  ppDots.forEach(dot=>{
+    const p=(Math.sin(now*dot.spd*2+dot.phase)+1)/2;
+    const col=dot.sev==="h"?"255,23,68":dot.sev==="m"?"255,145,0":"26,255,213";
+    ctx.beginPath();ctx.arc(dot.x,dot.y,5+p*dot.maxR,0,Math.PI*2);
+    ctx.strokeStyle="rgba("+col+","+(0.55-p*.48)+")";ctx.lineWidth=1.4;ctx.stroke();
+    ctx.beginPath();ctx.arc(dot.x,dot.y,4,0,Math.PI*2);
+    ctx.fillStyle="rgba("+col+",0.96)";ctx.shadowColor="rgba("+col+",1)";ctx.shadowBlur=9;
+    ctx.fill();ctx.shadowBlur=0;
+  });
+  ppAF=requestAnimationFrame(drawPP);
+}
+function startPP(){
+  ppOn=true;buildIncs();
+  setTimeout(()=>{
+    const c=document.getElementById("pp-c");if(!c)return;
+    const dpr=window.devicePixelRatio||1;
+    const W=c.offsetWidth||480,H=c.offsetHeight||188;
+    c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);
+    c.style.width=W+"px";c.style.height=H+"px";
+    c.getContext("2d").scale(dpr,dpr);
+    initDots(W,H);drawPP();
+  },60);
+  ppInt=setInterval(()=>{buildIncs();},9000);
+}
+function stopPP(){ppOn=false;if(ppAF)cancelAnimationFrame(ppAF);ppAF=null;clearInterval(ppInt);ppInt=null;}
+
+/* SMART ROUTING */
+const ROUTES=[
+  {dest:"Christiana Hospital, Newark DE",via:"I-95 N",mi:"4.2"},
+  {dest:"Wilmington Hospital, Wilmington DE",via:"US-202 S",mi:"2.8"},
+  {dest:"St. Francis Hospital, Wilmington DE",via:"DE-141 N",mi:"3.5"},
+  {dest:"Bayhealth Hospital, Dover DE",via:"DE-1 S",mi:"22.1"},
+  {dest:"Nemours Children's, Wilmington DE",via:"Concord Pike N",mi:"5.8"},
+];
+const RMSGS=[
+  "Heavy congestion on DE-1. Switching to Rte 9 via Christiana Rd.",
+  "Accident blocking I-95 N. Rerouting via US-202 N.",
+  "Road closure on Kirkwood Hwy. Diverting via Concord Pike.",
+  "Traffic incident on US-202. Taking Rte 9 alternate.",
+];
+let rtAF=null,rtOn=false,rtInt=null,rtProg=0,etaSec=480,rtIdx=0,rerouteT=0;
+let traf=[62,28,11,48,22,55];
+let pathPts=[];
+function trafClass(s){return s<20?"cong":s<38?"slow":"clr";}
+function trafLabel(s){return s<20?"Congested":s<38?"Slow":"Clear";}
+function updTraf(){
+  traf=traf.map(s=>Math.round(Math.max(8,Math.min(72,s+(Math.random()-.5)*14))));
+  traf.forEach((s,i)=>{
+    const el=document.getElementById("ts"+i);
+    const sp=document.getElementById("tspd"+i);
+    const lb=document.getElementById("tlbl"+i);
+    if(!el||!sp||!lb)return;
+    el.className="ts "+trafClass(s);sp.textContent=s+" mph";lb.textContent=trafLabel(s);
+  });
+  const congC=traf.filter(s=>s<20).length;
+  const rr=document.getElementById("reroute");
+  const modeB=document.getElementById("rt-mode");
+  const warnB=document.getElementById("rt-warn");
+  if(congC>=2){
+    rerouteT++;
+    if(rerouteT===1){
+      if(rr)rr.classList.add("show");if(warnB)warnB.style.display="block";if(modeB)modeB.style.display="none";
+      document.getElementById("reroute-msg").textContent=RMSGS[Math.floor(Math.random()*RMSGS.length)];
+      log("ROUTING","Traffic reroute triggered.",true);
+      setTimeout(()=>{
+        if(rr)rr.classList.remove("show");if(warnB)warnB.style.display="none";if(modeB)modeB.style.display="block";
+        rerouteT=0;rtIdx=(rtIdx+1)%ROUTES.length;updETA();
+      },4500);
+    }
+  }else{rerouteT=0;}
+}
+function updETA(){
+  etaSec=Math.max(45,etaSec-(Math.random()*9+2));
+  const mins=Math.ceil(etaSec/60);
+  const e=document.getElementById("eta-n");if(e)e.textContent=mins;
+  const rt=ROUTES[rtIdx];
+  const d=document.getElementById("eta-dest"),s=document.getElementById("eta-sub");
+  if(d)d.textContent=rt.dest;
+  if(s)s.textContent="Via "+rt.via+" • "+rt.mi+" mi • Updating…";
+  if(etaSec<=50){etaSec=360+Math.random()*200;rtIdx=(rtIdx+1)%ROUTES.length;}
+}
+function buildPath(W,H){
+  pathPts=[{x:W*.12,y:H*.85},{x:W*.28,y:H*.62},{x:W*.5,y:H*.38},{x:W*.72,y:H*.22},{x:W*.9,y:H*.1}];
+}
+function drawRT(){
+  if(!rtOn)return;
+  const c=document.getElementById("rt-c");if(!c)return;
+  const ctx=c.getContext("2d"),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="rgba(17,111,245,0.06)";ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){const x=i*W/10;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let i=0;i<=6;i++){const y=i*H/6;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  const roads=[[[.48*W,0],[.46*W,H]],[[0,.5*H],[W,.52*H]],[[.18*W,0],[.26*W,H]],[[.68*W,.12*H],[.62*W,H]],[[0,.22*H],[.6*W,.26*H]]];
+  roads.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.strokeStyle="rgba(83,152,246,0.15)";ctx.lineWidth=2;ctx.stroke();});
+  ctx.fillStyle="rgba(83,152,246,0.28)";ctx.font="bold 7px JetBrains Mono,monospace";
+  ctx.fillText("I-95",.43*W,.1*H);ctx.fillText("US-40",.52*W,.54*H);ctx.fillText("DE-1",.6*W,.55*H);ctx.fillText("Concord Pk",.02*W,.24*H);
+  if(pathPts.length>1){
+    ctx.beginPath();ctx.moveTo(pathPts[0].x,pathPts[0].y);
+    for(let i=1;i<pathPts.length;i++)ctx.lineTo(pathPts[i].x,pathPts[i].y);
+    ctx.strokeStyle="rgba(26,255,213,0.72)";ctx.lineWidth=2.5;ctx.setLineDash([7,4]);ctx.stroke();ctx.setLineDash([]);
+  }
+  const dest=pathPts[pathPts.length-1];
+  if(dest){
+    ctx.beginPath();ctx.arc(dest.x,dest.y,6,0,Math.PI*2);
+    ctx.fillStyle="#ff1744";ctx.shadowColor="#ff1744";ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
+    ctx.beginPath();ctx.arc(dest.x,dest.y,14,0,Math.PI*2);ctx.fillStyle="rgba(255,23,68,0.12)";ctx.fill();
+    ctx.font="bold 8px Rajdhani,sans-serif";ctx.fillStyle="rgba(255,100,120,0.8)";ctx.fillText("HOSPITAL",dest.x-22,dest.y-18);
+  }
+  rtProg+=.0025;if(rtProg>1)rtProg=0;
+  const idx2=Math.min(Math.floor(rtProg*(pathPts.length-1)),pathPts.length-2);
+  const frac=rtProg*(pathPts.length-1)-idx2;
+  const p1=pathPts[idx2],p2=pathPts[idx2+1];
+  if(p1&&p2){
+    const ax=p1.x+(p2.x-p1.x)*frac,ay=p1.y+(p2.y-p1.y)*frac;
+    ctx.beginPath();ctx.arc(ax,ay,11,0,Math.PI*2);
+    ctx.fillStyle="rgba(17,111,245,0.22)";ctx.shadowColor="#116ff5";ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
+    ctx.font="15px serif";ctx.fillText("🚑",ax-9,ay+6);
+    ctx.beginPath();ctx.arc(ax,ay,18,0,Math.PI*2);
+    ctx.strokeStyle="rgba(26,255,213,0.15)";ctx.lineWidth=1;ctx.stroke();
+  }
+  rtAF=requestAnimationFrame(drawRT);
+}
+function startRT(){
+  rtOn=true;rtProg=0;etaSec=480;rerouteT=0;rtIdx=0;
+  updETA();updTraf();
+  setTimeout(()=>{
+    const c=document.getElementById("rt-c");if(!c)return;
+    const dpr=window.devicePixelRatio||1;
+    const W=c.offsetWidth||480,H=c.offsetHeight||196;
+    c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);
+    c.style.width=W+"px";c.style.height=H+"px";
+    c.getContext("2d").scale(dpr,dpr);
+    buildPath(W,H);drawRT();
+  },60);
+  rtInt=setInterval(()=>{updTraf();updETA();},3200);
+}
+function stopRT(){rtOn=false;if(rtAF)cancelAnimationFrame(rtAF);rtAF=null;clearInterval(rtInt);rtInt=null;}
+</script>
+</body>
+</html>
